@@ -1,0 +1,16 @@
+node_modules
+client/node_modules
+server/node_modules
+client/dist
+server/data
+.env
+.git
+.gitignore
+.DS_Store
+*.log
+.vite
+coverage
+README.md
+.railwayignore
+railway.json
+nixpacks.toml
