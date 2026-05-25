@@ -1,0 +1,82 @@
+import { useEffect, useState } from 'react';
+import LeaderboardRow from '../components/LeaderboardRow.jsx';
+import { useLeaderboard } from '../hooks/useLeaderboard.js';
+
+export default function Leaderboard() {
+  const { rows, updatedAt, loading } = useLeaderboard();
+  const [filter, setFilter] = useState('');
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const filtered = rows.filter((r) =>
+    !filter ? true : r.discord.toLowerCase().includes(filter.toLowerCase()),
+  );
+
+  const ago = updatedAt ? Math.max(0, Math.floor((now - updatedAt.getTime()) / 1000)) : null;
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold text-cloud">Leaderboard</h1>
+          {ago !== null && (
+            <div className="text-xs text-steel">
+              Last updated: {ago === 0 ? 'just now' : `${ago}s ago`}
+            </div>
+          )}
+        </div>
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Search discord username…"
+          className="bg-meteorite border border-charcoal rounded px-3 py-1.5 text-sm w-64 text-cloud placeholder:text-steel focus:border-nebula focus:outline-none"
+        />
+      </div>
+
+      {loading ? (
+        <div className="text-steel">Loading…</div>
+      ) : rows.length === 0 ? (
+        <div className="text-steel bg-meteorite border border-charcoal rounded-xl p-6 text-center">
+          No participants yet. Be the first to submit a bracket.
+        </div>
+      ) : (
+        <div className="overflow-x-auto bg-meteorite border border-charcoal rounded-xl">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-charcoal text-steel text-left text-xs uppercase tracking-wide">
+                <th className="px-3 py-2">#</th>
+                <th className="px-3 py-2">Discord</th>
+                <th className="px-3 py-2 text-right">Score</th>
+                <th className="px-3 py-2 text-right">Player</th>
+                <th className="px-3 py-2 text-right">Awards</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2 text-right">Prize</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-charcoal">
+              {filtered.map((r) => (
+                <LeaderboardRow key={r.discord} row={r} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-6 bg-meteorite border border-charcoal rounded-xl p-4 text-xs">
+        <div className="font-display font-bold text-cloud mb-2">Prize structure</div>
+        <div className="flex flex-wrap gap-3 text-cloud/80">
+          <span>1st: <b className="text-cosmic">$500</b></span>
+          <span>2nd: <b className="text-cosmic">$250</b></span>
+          <span>3rd: <b className="text-cosmic">$150</b></span>
+          <span>4–10: <b className="text-cosmic">$50</b></span>
+          <span>11–25: <b className="text-cosmic">$25</b></span>
+          <span>26–50: <b className="text-cosmic">$15</b></span>
+        </div>
+      </div>
+    </div>
+  );
+}

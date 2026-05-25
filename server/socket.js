@@ -1,0 +1,40 @@
+import { Server } from 'socket.io';
+import { computeLeaderboard } from './services/scoring.js';
+import { db } from './db.js';
+
+let io = null;
+
+export function attachSocket(httpServer) {
+  io = new Server(httpServer, {
+    cors: {
+      origin: process.env.NODE_ENV === 'production' ? false : true,
+      methods: ['GET', 'POST'],
+    },
+  });
+
+  io.on('connection', (socket) => {
+    socket.emit('hello', { ok: true });
+  });
+
+  return io;
+}
+
+export function emitMatchUpdated(matchId) {
+  if (!io) return;
+  const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(matchId);
+  if (match) io.emit('match:updated', match);
+}
+
+export function emitLeaderboard() {
+  if (!io) return;
+  io.emit('leaderboard:update', computeLeaderboard());
+}
+
+export function emitPlayerPicksUnlocked(matchId) {
+  if (!io) return;
+  io.emit('player-picks:unlocked', { match_id: matchId });
+}
+
+export function getIo() {
+  return io;
+}

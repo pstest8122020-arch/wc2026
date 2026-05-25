@@ -1,0 +1,14 @@
+# Nixpacks config for Railway
+# Pin Node 20 (LTS) — better-sqlite3 has prebuilt binaries for it.
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gcc"]
+
+[phases.install]
+cmds = ["npm install --workspaces --include-workspace-root"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm start"

@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #0C0C0C;
+  color: #E8F9FF;
+}
+
+h1, h2, h3 {
+  font-family: 'Syne', 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.font-display {
+  font-family: 'Syne', 'Inter', sans-serif;
+}
+
+.bracket-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.bracket-scroll::-webkit-scrollbar-track {
+  background: #1D1D1C;
+}
+.bracket-scroll::-webkit-scrollbar-thumb {
+  background: #30302E;
+  border-radius: 4px;
+}
+.bracket-scroll::-webkit-scrollbar-thumb:hover {
+  background: #707070;
+}
+
+/* Number tabular consistency per Jupiter brand */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

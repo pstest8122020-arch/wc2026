@@ -1,0 +1,19 @@
+{
+  "name": "wc2026-predictor",
+  "private": true,
+  "version": "1.0.0",
+  "description": "World Cup 2026 community prediction contest",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "build": "npm run build --workspace=client",
+    "start": "NODE_ENV=production npm start --workspace=server",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
