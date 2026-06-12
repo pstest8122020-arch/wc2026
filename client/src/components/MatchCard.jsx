@@ -1,6 +1,8 @@
 import { formatKickoff } from '../lib/scoring.js';
+import TeamName from './TeamName.jsx';
+import MatchOdds from './MatchOdds.jsx';
 
-export default function MatchCard({ match, prediction, points, dense = false }) {
+export default function MatchCard({ match, prediction, points, dense = false, odds = null }) {
   const { home_team, away_team, home_goals, away_goals, status, kickoff_utc, pts_multiplier } = match;
 
   const finished = status === 'FINISHED';
@@ -50,21 +52,24 @@ export default function MatchCard({ match, prediction, points, dense = false }) 
       </div>
 
       <div className="space-y-0.5">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-cloud truncate pr-2">{home_team}</span>
-          <span className={`tabular-nums font-display font-bold ${finished || live ? 'text-cloud' : 'text-steel'}`}>
+        <div className="flex items-center justify-between gap-2">
+          <TeamName name={home_team} size={14} className="font-medium text-cloud min-w-0 truncate" />
+          <span className={`tabular-nums font-display font-bold shrink-0 ${finished || live ? 'text-cloud' : 'text-steel'}`}>
             {home_goals ?? '–'}
           </span>
         </div>
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-cloud truncate pr-2">{away_team}</span>
-          <span className={`tabular-nums font-display font-bold ${finished || live ? 'text-cloud' : 'text-steel'}`}>
+        <div className="flex items-center justify-between gap-2">
+          <TeamName name={away_team} size={14} className="font-medium text-cloud min-w-0 truncate" />
+          <span className={`tabular-nums font-display font-bold shrink-0 ${finished || live ? 'text-cloud' : 'text-steel'}`}>
             {away_goals ?? '–'}
           </span>
         </div>
       </div>
 
-      <div className="mt-1.5 text-[11px] text-steel">{formatKickoff(kickoff_utc)}</div>
+      <div className="mt-1.5 text-[11px] text-steel flex items-center justify-between gap-2">
+        <span>{formatKickoff(kickoff_utc)}</span>
+        <MatchOdds odds={odds} />
+      </div>
 
       {prediction && (
         <div className="mt-1 flex items-center justify-between text-[11px]">

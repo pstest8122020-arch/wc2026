@@ -130,8 +130,11 @@ export function syncMatchRow(apiMatch) {
   if (row.manual_result) return null;
 
   const status = mapApiStatus(apiMatch.status);
-  const homeGoals = apiMatch.score?.fullTime?.home ?? null;
-  const awayGoals = apiMatch.score?.fullTime?.away ?? null;
+  // null score from the API means "not published yet", NOT "no goals" — keep
+  // whatever we already have (e.g. the ESPN overlay's fresher score) instead
+  // of regressing it and ping-ponging with the overlay every tick.
+  const homeGoals = apiMatch.score?.fullTime?.home ?? row.home_goals;
+  const awayGoals = apiMatch.score?.fullTime?.away ?? row.away_goals;
   const homeTeam = apiMatch.homeTeam?.name || apiMatch.homeTeam?.shortName || row.home_team;
   const awayTeam = apiMatch.awayTeam?.name || apiMatch.awayTeam?.shortName || row.away_team;
   const kickoff = apiMatch.utcDate || row.kickoff_utc;

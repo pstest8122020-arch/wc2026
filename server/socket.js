@@ -1,5 +1,5 @@
 import { Server } from 'socket.io';
-import { computeLeaderboard } from './services/scoring.js';
+import { computeLeaderboardCached, invalidateLeaderboard } from './services/scoring.js';
 import { db } from './db.js';
 
 let io = null;
@@ -25,9 +25,17 @@ export function emitMatchUpdated(matchId) {
   if (match) io.emit('match:updated', match);
 }
 
+let _lbBroadcastTimer = null;
 export function emitLeaderboard() {
   if (!io) return;
-  io.emit('leaderboard:update', computeLeaderboard());
+  // Debounce: coalesce a burst of result changes (e.g. a sync updating many
+  // matches) into a single recompute + broadcast, at most once per second.
+  if (_lbBroadcastTimer) return;
+  _lbBroadcastTimer = setTimeout(() => {
+    _lbBroadcastTimer = null;
+    invalidateLeaderboard();
+    if (io) io.emit('leaderboard:update', computeLeaderboardCached());
+  }, 1000);
 }
 
 export function emitPlayerPicksUnlocked(matchId) {

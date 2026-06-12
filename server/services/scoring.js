@@ -1,11 +1,11 @@
 import { db } from '../db.js';
 
 export const AWARD_PTS = {
-  golden_boot: 25,
-  top_assister: 20,
-  golden_glove: 15,
+  // Golden Ball (player_tournament = best player / MVP) is the more prestigious
+  // individual honor than the Golden Boot (top scorer), so it's worth more.
+  player_tournament: 25,
+  golden_boot: 20,
   best_young: 15,
-  player_tournament: 20,
 };
 
 export function scorePoints(predHome, predAway, actualHome, actualAway, multiplier) {
@@ -114,15 +114,17 @@ export function computeAwardPointsFor(discord) {
 
   return (
     awardPoints(p.pick_golden_boot, awards.golden_boot, 'golden_boot') +
-    awardPoints(p.pick_top_assister, awards.top_assister, 'top_assister') +
-    awardPoints(p.pick_golden_glove, awards.golden_glove, 'golden_glove') +
     awardPoints(p.pick_best_young, awards.best_young, 'best_young') +
     awardPoints(p.pick_player_tournament, awards.player_tournament, 'player_tournament')
   );
 }
 
 export function computeLeaderboard() {
-  const participants = db.prepare('SELECT * FROM participants').all();
+  // Disqualified entries stay in the DB (for audit) but never appear on the
+  // public leaderboard. Pending/eligible/ineligible all show up until admin acts.
+  const participants = db
+    .prepare("SELECT * FROM participants WHERE eligibility_status != 'disqualified'")
+    .all();
   const awards = db.prepare('SELECT * FROM tournament_awards WHERE id = 1').get();
 
   const scoreSum = db.prepare(
@@ -141,19 +143,24 @@ export function computeLeaderboard() {
     playerByDiscord.set(row.discord, row.pts);
   }
 
+  const bracketByDiscord = new Map();
+  for (const row of db.prepare('SELECT discord, COALESCE(points,0) AS pts FROM bracket_predictions').all()) {
+    bracketByDiscord.set(row.discord, row.pts);
+  }
+
   const rows = participants.map((p) => {
     const score = scoreByDiscord.get(p.discord) || { pts: 0, matches_played: 0 };
     const player_pts = playerByDiscord.get(p.discord) || 0;
     const award_pts = awards
       ? awardPoints(p.pick_golden_boot, awards.golden_boot, 'golden_boot') +
-        awardPoints(p.pick_top_assister, awards.top_assister, 'top_assister') +
-        awardPoints(p.pick_golden_glove, awards.golden_glove, 'golden_glove') +
         awardPoints(p.pick_best_young, awards.best_young, 'best_young') +
         awardPoints(p.pick_player_tournament, awards.player_tournament, 'player_tournament')
       : 0;
-    const total = score.pts + player_pts + award_pts;
+    const bracket_pts = bracketByDiscord.get(p.discord) || 0;
+    const total = bracket_pts + score.pts + player_pts + award_pts;
     return {
       discord: p.discord,
+      bracket_pts,
       score_pts: score.pts,
       player_pts,
       award_pts,
@@ -173,4 +180,26 @@ export function computeLeaderboard() {
     ...r,
     prize: prizeFor(i + 1),
   }));
+}
+
+// --- Leaderboard cache -------------------------------------------------------
+// The leaderboard is identical for every user yet walks participants × matches.
+// Cache it briefly so a burst (everyone refreshing at kickoff) costs one compute
+// per TTL instead of one per request. invalidateLeaderboard() is called from the
+// socket broadcast on every result change so updates still appear promptly.
+let _lbCache = null;
+let _lbAt = 0;
+const LB_TTL_MS = 15000;
+
+export function computeLeaderboardCached() {
+  const now = Date.now();
+  if (_lbCache && now - _lbAt < LB_TTL_MS) return _lbCache;
+  _lbCache = computeLeaderboard();
+  _lbAt = now;
+  return _lbCache;
+}
+
+export function invalidateLeaderboard() {
+  _lbCache = null;
+  _lbAt = 0;
 }

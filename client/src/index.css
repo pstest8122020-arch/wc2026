@@ -6,19 +6,31 @@ html, body, #root {
   height: 100%;
 }
 
+/* Tells the browser to use dark-mode variants of native form controls
+   (number-input spinners, scrollbars, focus rings, dropdowns). */
+html {
+  color-scheme: dark;
+  /* Always reserve the scrollbar gutter so pages that do/don't overflow keep
+     the same content width. Without this, the vertical scrollbar appearing
+     shifts the centered (mx-auto) navbar + content sideways, which makes
+     clicking around feel "jumpy". */
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #0C0C0C;
   color: #E8F9FF;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3 {
-  font-family: 'Syne', 'Inter', sans-serif;
-  letter-spacing: -0.01em;
-}
-
-.font-display {
-  font-family: 'Syne', 'Inter', sans-serif;
+/* Jupiter brand: Inter for everything. Heavy weights + tight tracking carry
+   the display work; no need for a second display face. */
+h1, h2, h3, .font-display {
+  font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: -0.025em;
+  font-feature-settings: 'ss01', 'cv11';
 }
 
 .bracket-scroll::-webkit-scrollbar {
@@ -38,4 +50,52 @@ h1, h2, h3 {
 /* Number tabular consistency per Jupiter brand */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Interactive bracket (BracketBuilder): rounds are flex columns whose cells
+   flex to equal height, so each next-round match auto-centers between its two
+   feeders. Connectors = horizontal stubs + a vertical joiner drawn at the
+   mid-gutter. Left half flows right toward the centre; right half mirrors. */
+.bkt-col { display: flex; flex-direction: column; }
+.bkt-cell { flex: 1 1 0; display: flex; align-items: center; position: relative; }
+.bkt-line { background: #30302E; }
+
+.bkt-L .bkt-cell.bkt-fwd::after,
+.bkt-R .bkt-cell.bkt-fwd::after {
+  content: ''; position: absolute; top: 50%; width: 9px; height: 2px;
+  background: #30302E; margin-top: -1px;
+}
+.bkt-L .bkt-cell.bkt-fwd::after { left: 100%; }
+.bkt-R .bkt-cell.bkt-fwd::after { right: 100%; }
+
+.bkt-L .bkt-parent::before,
+.bkt-R .bkt-parent::before {
+  content: ''; position: absolute; top: 50%; width: 9px; height: 2px;
+  background: #30302E; margin-top: -1px;
+}
+.bkt-L .bkt-parent::before { right: 100%; }
+.bkt-R .bkt-parent::before { left: 100%; }
+
+.bkt-vline { position: absolute; top: 25%; height: 50%; width: 2px; background: #30302E; }
+.bkt-L .bkt-vline { right: 100%; margin-right: 7px; }
+.bkt-R .bkt-vline { left: 100%; margin-left: 7px; }
+
+/* News ticker — seamless right-to-left marquee. The track renders its items
+   twice and translates -50%, so the second copy lands exactly where the first
+   started: no visible seam. Pauses on hover; disabled for reduced-motion. */
+@keyframes news-ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.news-track {
+  display: flex;
+  width: max-content;
+  animation: news-ticker-scroll 116.07s linear infinite;
+  will-change: transform;
+}
+.news-ticker:hover .news-track {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-track { animation: none; }
 }

@@ -1,185 +1,182 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import MatchCard from '../components/MatchCard.jsx';
+import { useAuth, discordLoginUrl } from '../hooks/useAuth.js';
+import BracketBuilder from '../components/BracketBuilder.jsx';
+import TeamName from '../components/TeamName.jsx';
+import ShareImageModal from '../components/ShareImageModal.jsx';
+import ShareableMatchPick from '../components/ShareableMatchPick.jsx';
 
-const ROUND_ORDER = [
-  'Group Stage',
-  'Round of 32',
-  'Round of 16',
-  'Quarterfinal',
-  'Semifinal',
-  '3rd Place',
-  'Final',
-];
-
+// "My Bracket" — the logged-in user's saved bracket, rendered read-only via the
+// same BracketBuilder used to build it. Loads from the Discord session.
 export default function MyPicks() {
-  const [input, setInput] = useState('');
-  const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  const auth = useAuth();
+  const [bracket, setBracket] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [noBracket, setNoBracket] = useState(false);
+  const [matchPicks, setMatchPicks] = useState(null);
+  const [shareRow, setShareRow] = useState(null); // match-pick row being shared as an image
 
-  async function lookup(e) {
-    e?.preventDefault();
-    if (!input.trim()) return;
+  useEffect(() => {
+    if (!auth.loggedIn) return;
     setLoading(true);
     setError('');
-    setData(null);
-    try {
-      const result = await api.participant(input.trim());
-      setData(result);
-    } catch (e) {
-      setError(e.message || 'Not found');
-    } finally {
-      setLoading(false);
-    }
-  }
+    setNoBracket(false);
+    setBracket(null);
+    setMatchPicks(null);
+    api
+      .getMyBracket()
+      .then((b) => setBracket(b))
+      .catch((e) => {
+        if (e.status === 404) setNoBracket(true);
+        else setError(e.message || 'Could not load your bracket');
+      })
+      .finally(() => setLoading(false));
+    // Independent — the user's per-match picks (score + players), shown below.
+    api
+      .myPlayerPicks()
+      .then((rows) => setMatchPicks(Array.isArray(rows) ? rows : []))
+      .catch(() => setMatchPicks([]));
+  }, [auth.loggedIn]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="font-display text-3xl font-extrabold text-cloud mb-6">My Picks</h1>
+    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+      <h1 className="font-display text-2xl sm:text-3xl font-black text-cloud mb-6">
+        {auth.handle
+          ? `@${auth.handle}’s ${noBracket ? 'Match Picks' : 'Bracket'}`
+          : noBracket
+            ? 'My Match Picks'
+            : 'My Bracket'}
+      </h1>
 
-      <form onSubmit={lookup} className="flex gap-2 mb-6">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Enter your Discord username"
-          className="flex-1 bg-meteorite border border-charcoal rounded px-3 py-2 text-cloud placeholder:text-steel focus:border-nebula focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="bg-jupiter-gradient text-space font-display font-bold px-4 py-2 rounded"
-        >
-          Look up
-        </button>
-      </form>
-
-      {loading && <div className="text-steel">Loading…</div>}
-      {error && (
-        <div className="text-trifid bg-trifid/10 border border-trifid/30 rounded px-3 py-2 mb-4">
-          {error}
+      {auth.loading ? (
+        <div className="text-steel">Loading…</div>
+      ) : !auth.configured ? (
+        <div className="bg-meteorite border border-charcoal rounded-xl p-6 text-cloud/80 text-sm max-w-md">
+          Discord login isn’t configured in this environment.
         </div>
-      )}
-
-      {data && <PicksView data={data} />}
-    </div>
-  );
-}
-
-function PicksView({ data }) {
-  const t = data.totals || {};
-
-  const grouped = {};
-  for (const p of data.score_predictions) {
-    const r = p.round;
-    if (!grouped[r]) grouped[r] = [];
-    grouped[r].push(p);
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-sm">
-        <Stat label="Score pts" value={t.score_pts ?? 0} />
-        <Stat label="Player pts" value={t.player_pts ?? 0} />
-        <Stat label="Award pts" value={t.award_pts ?? 0} />
-        <Stat label="Total" value={t.total ?? 0} accent />
-        <Stat label="Rank / Prize" value={`#${t.rank ?? '—'} · $${t.prize ?? 0}`} />
-      </div>
-
-      <div className="bg-meteorite border border-charcoal rounded-xl p-4">
-        <h2 className="font-display font-bold text-cloud mb-2">Award picks</h2>
-        <ul className="text-sm space-y-1">
-          <AwardLine label="Golden Boot" value={data.awards.golden_boot} />
-          <AwardLine label="Top Assister" value={data.awards.top_assister} />
-          <AwardLine label="Golden Glove" value={data.awards.golden_glove} />
-          <AwardLine label="Best Young Player" value={data.awards.best_young} />
-          <AwardLine label="Player of Tournament" value={data.awards.player_tournament} />
-        </ul>
-      </div>
-
-      <div>
-        <h2 className="font-display font-bold text-cloud mb-3">Score predictions</h2>
-        <div className="space-y-4">
-          {ROUND_ORDER.map((round) => {
-            const items = grouped[round];
-            if (!items?.length) return null;
-            return (
-              <div key={round}>
-                <div className="text-sm font-display font-bold text-cloud mb-2">{round}</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {items.map((p) => (
-                    <MatchCard
-                      key={p.match_id}
-                      match={{
-                        id: p.match_id,
-                        home_team: p.home_team,
-                        away_team: p.away_team,
-                        home_goals: p.home_goals,
-                        away_goals: p.away_goals,
-                        status: p.status,
-                        kickoff_utc: p.kickoff_utc,
-                        round: p.round,
-                        pts_multiplier: p.pts_multiplier,
-                      }}
-                      prediction={{ pred_home: p.pred_home, pred_away: p.pred_away }}
-                      points={p.points_earned}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+      ) : !auth.loggedIn ? (
+        <div className="bg-meteorite border border-charcoal rounded-xl p-6 text-center space-y-3 max-w-md">
+          <div className="text-sm text-cloud/80">Log in with Discord to see your bracket.</div>
+          <a
+            href={discordLoginUrl('/my-picks')}
+            className="inline-flex items-center gap-2 text-sm font-display font-bold text-white bg-[#5865F2] hover:bg-[#4752c4] rounded px-4 py-2 transition"
+          >
+            Log in with Discord
+          </a>
         </div>
-      </div>
-
-      {data.player_picks?.length > 0 && (
-        <div>
-          <h2 className="font-display font-bold text-cloud mb-2">Per-match player picks</h2>
-          <div className="bg-meteorite border border-charcoal rounded-xl overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-charcoal text-xs uppercase tracking-wide text-steel">
-                <tr>
-                  <th className="px-3 py-2 text-left">Match</th>
-                  <th className="px-3 py-2 text-left">First Scorer</th>
-                  <th className="px-3 py-2 text-left">Assist</th>
-                  <th className="px-3 py-2 text-left">MOTM</th>
-                  <th className="px-3 py-2 text-right">Pts</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-charcoal">
-                {data.player_picks.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-3 py-2 text-cloud">#{p.match_num} {p.home_team} vs {p.away_team}</td>
-                    <td className="px-3 py-2 text-cloud/80">{p.first_scorer}</td>
-                    <td className="px-3 py-2 text-cloud/80">{p.assist_player}</td>
-                    <td className="px-3 py-2 text-cloud/80">{p.motm}</td>
-                    <td className="px-3 py-2 text-right font-display font-bold text-helix">
-                      {p.fs_points + p.assist_points + p.motm_points}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 text-sm text-steel mb-5">
+            <span className="inline-block w-2 h-2 rounded-full bg-cosmic" />
+            Logged in as <b className="text-cloud">@{auth.handle}</b>
           </div>
-        </div>
+
+          {loading && <div className="text-steel">Loading your bracket…</div>}
+          {error && (
+            <div className="text-trifid bg-trifid/10 border border-trifid/30 rounded px-3 py-2 mb-4">{error}</div>
+          )}
+
+          {/* No bracket submitted → the page is just their match picks (no
+              "build your bracket" dead-end; brackets lock at the first kickoff). */}
+          {bracket && (
+            <>
+              <div className="mb-4 text-sm">
+                {bracket.locked ? (
+                  <span className="text-steel">Locked — the tournament has started.</span>
+                ) : (
+                  <Link to="/" className="text-nebula hover:text-helix underline">Edit your bracket →</Link>
+                )}
+              </div>
+              <BracketBuilder readOnly initialBracket={bracket} />
+            </>
+          )}
+
+          {/* Match picks below the bracket */}
+          <div className="mt-8">
+            <MyMatchPicks picks={matchPicks} onShare={setShareRow} />
+          </div>
+
+          {shareRow && (
+            <ShareImageModal
+              title="Share your match pick"
+              chips={[
+                `${shareRow.home_team} ${shareRow.pred_home != null ? `${shareRow.pred_home}–${shareRow.pred_away}` : ''} ${shareRow.away_team}`
+                  .replace(/\s+/g, ' ')
+                  .trim(),
+              ]}
+              filename={`wc2026-match-${shareRow.match_id}.png`}
+              shareTitle="My World Cup 2026 match call"
+              shareText={`My call: ${shareRow.home_team} ${shareRow.pred_home != null ? `${shareRow.pred_home}–${shareRow.pred_away}` : ''} ${shareRow.away_team} — Jupiter Community Predictor Challenge. Make your picks at jup26wc.com`}
+              previewAspect="1080 / 680"
+              card={<ShareableMatchPick match={shareRow} pick={shareRow} handle={auth.handle} />}
+              onClose={() => setShareRow(null)}
+            />
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function Stat({ label, value, accent }) {
+// The logged-in user's saved per-match picks (score + first scorer / assist / MOTM).
+// Each row links back to that match so they can edit; the Share button raises the
+// row to the parent's ShareImageModal. null = still loading.
+function MyMatchPicks({ picks, onShare }) {
+  if (picks === null) return null;
+  if (picks.length === 0) {
+    return (
+      <div className="mb-8 bg-meteorite border border-charcoal rounded-xl px-5 py-4 text-sm text-cloud/70">
+        You haven’t saved any match picks yet.{' '}
+        <Link to="/picks" className="text-nebula hover:text-helix underline">
+          Pick upcoming matches →
+        </Link>
+      </div>
+    );
+  }
   return (
-    <div className={`rounded-xl border p-3 ${accent ? 'border-nebula bg-nebula/10' : 'border-charcoal bg-meteorite'}`}>
-      <div className="text-xs text-steel">{label}</div>
-      <div className={`font-display font-bold ${accent ? 'text-helix' : 'text-cloud'}`}>{value}</div>
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-display font-bold text-cloud text-lg">Your match picks ({picks.length})</h2>
+        <Link to="/picks" className="text-sm text-nebula hover:text-helix underline">Pick more →</Link>
+      </div>
+      <div className="space-y-2">
+        {picks.map((p) => (
+          <Link
+            key={p.match_id}
+            to={`/picks/${p.match_id}`}
+            className="block bg-meteorite border border-charcoal hover:border-nebula rounded-lg px-3 py-2.5 transition"
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0 text-cloud">
+                <span className="text-xs text-steel w-7 shrink-0">#{p.match_num}</span>
+                <TeamName name={p.home_team} size={16} />
+                <span className="font-display font-bold">
+                  {p.pred_home != null ? `${p.pred_home}–${p.pred_away}` : '—'}
+                </span>
+                <TeamName name={p.away_team} size={16} />
+              </div>
+              <div className="text-xs text-cloud/70 flex items-center gap-x-3 gap-y-0.5 flex-wrap">
+                {p.first_scorer && <span title="First scorer">⚽ {p.first_scorer}</span>}
+                {p.assist_player && <span title="Assist">🅰️ {p.assist_player}</span>}
+                {p.motm && <span title="Man of the Match">★ {p.motm}</span>}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onShare?.(p);
+                  }}
+                  className="shrink-0 inline-flex items-center bg-charcoal border border-cosmic/50 text-cosmic font-display font-bold text-[11px] px-2.5 py-1 rounded-lg hover:bg-cosmic/10 transition"
+                >
+                  Share ↗
+                </button>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
-  );
-}
-
-function AwardLine({ label, value }) {
-  return (
-    <li className="flex justify-between border-b border-charcoal py-1 last:border-b-0">
-      <span className="text-steel">{label}</span>
-      <span className="font-medium text-cloud">{value || <i className="text-steel">(blank)</i>}</span>
-    </li>
   );
 }

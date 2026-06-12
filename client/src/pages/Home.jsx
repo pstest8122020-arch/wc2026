@@ -2,16 +2,16 @@ import { Link } from 'react-router-dom';
 
 export default function Home() {
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-10">
-        <div className="text-xs uppercase tracking-[0.2em] text-steel font-medium mb-3">
+    <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <div className="mb-8 sm:mb-10">
+        <div className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-steel font-medium mb-3">
           Jupiter Community Predictor Challenge
         </div>
-        <h1 className="font-display text-5xl font-extrabold mb-4 leading-tight">
-          <span className="bg-jupiter-gradient bg-clip-text text-transparent">WC 2026</span>
-          <span className="text-cloud"> bracket pool</span>
+        <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-black mb-4 leading-[1.05]">
+          <span className="bg-jupiter-gradient bg-clip-text text-transparent">WC 2026</span>{' '}
+          <span className="text-cloud">bracket pool</span>
         </h1>
-        <p className="text-cloud/80 text-lg max-w-2xl">
+        <p className="text-cloud/80 text-base sm:text-lg max-w-2xl">
           Predict every result of the tournament, lock in your award picks, and call
           first scorers + MOTM before each match. 50 winners. $2,000 prize pool.
         </p>
@@ -46,8 +46,8 @@ export default function Home() {
         <h2 className="font-display font-bold text-cloud mb-3">Eligibility</h2>
         <p className="text-sm text-cloud/80">
           Open to wallets that have interacted with{' '}
-          <a className="text-nebula hover:text-helix underline" href="https://jup.ag/predict" target="_blank" rel="noreferrer">
-            Jupiter Predict
+          <a className="text-nebula hover:text-helix underline" href="https://jup.ag/prediction" target="_blank" rel="noreferrer">
+            Jupiter Prediction
           </a>
           . Your Solana wallet address is required at submission for verification and payout.
         </p>
@@ -55,6 +55,29 @@ export default function Home() {
 
       <section className="bg-meteorite border border-charcoal rounded-xl p-5">
         <h2 className="font-display font-bold text-cloud mb-3">Prize pool</h2>
+
+        <div className="bg-jupiter-gradient rounded-lg p-[1px] mb-5">
+          <div className="bg-space rounded-[7px] px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-cosmic font-bold">
+                Special prize
+              </div>
+              <div className="text-cloud font-display font-extrabold text-base sm:text-lg leading-tight mt-0.5">
+                Perfect bracket bonus
+              </div>
+              <div className="text-cloud/70 text-xs mt-0.5">
+                100% correct predictions across the tournament
+              </div>
+            </div>
+            <div className="font-display font-black text-2xl sm:text-3xl bg-jupiter-gradient bg-clip-text text-transparent">
+              $10,000
+            </div>
+          </div>
+        </div>
+
+        <div className="text-[10px] uppercase tracking-[0.18em] text-steel font-bold mb-2">
+          By final leaderboard rank
+        </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-sm">
           <Prize rank="1st" amount="$500" />
           <Prize rank="2nd" amount="$250" />
@@ -62,6 +85,10 @@ export default function Home() {
           <Prize rank="4–10" amount="$50" />
           <Prize rank="11–25" amount="$25" />
           <Prize rank="26–50" amount="$15" />
+        </div>
+        <div className="text-xs text-steel mt-2">
+          Awarded to the top 50 finishers on the points leaderboard once the tournament ends.
+          $2,000 base pool, plus the $10,000 special-prize bonus if anyone hits 100%.
         </div>
       </section>
     </div>
