@@ -52,7 +52,7 @@ function pendingParticipants() {
          WHERE eligibility_status IN ('ineligible', 'pending')
            AND wallet_address IS NOT NULL
          ORDER BY CASE eligibility_status WHEN 'pending' THEN 0 ELSE 1 END,
-                  submitted_at ASC`,
+                  eligibility_checked_at ASC NULLS FIRST`,
     )
     .all();
 }
