@@ -14,6 +14,7 @@ import { db, seedPlaceholderMatches } from './db.js';
 import { attachSocket } from './socket.js';
 import { startSync } from './services/sync.js';
 import { seedMatchesFromApi } from './services/footballApi.js';
+import { seedMatchesFromEspn } from './services/espnApi.js';
 
 import predictionsRouter from './routes/predictions.js';
 import matchesRouter from './routes/matches.js';
@@ -61,16 +62,22 @@ const httpServer = createServer(app);
 attachSocket(httpServer);
 
 async function bootstrap() {
-  if (process.env.FOOTBALL_API_KEY) {
-    try {
-      await seedMatchesFromApi();
-    } catch (e) {
-      console.warn('[bootstrap] API seed failed, falling back to placeholders:', e.message);
+  // Seed order: ESPN (primary, no key needed) -> football-data.org (if key) -> placeholders.
+  try {
+    await seedMatchesFromEspn();
+  } catch (espnErr) {
+    console.warn('[bootstrap] ESPN seed failed:', espnErr.message);
+    if (process.env.FOOTBALL_API_KEY) {
+      try {
+        await seedMatchesFromApi();
+      } catch (e) {
+        console.warn('[bootstrap] football-data seed failed, using placeholders:', e.message);
+        seedPlaceholderMatches();
+      }
+    } else {
+      console.warn('[bootstrap] no FOOTBALL_API_KEY for fallback; seeding placeholder matches');
       seedPlaceholderMatches();
     }
-  } else {
-    console.warn('[bootstrap] FOOTBALL_API_KEY not set; seeding 80 placeholder matches');
-    seedPlaceholderMatches();
   }
 
   startSync();
