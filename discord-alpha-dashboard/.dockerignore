@@ -1,0 +1,16 @@
+node_modules
+client/node_modules
+server/node_modules
+client/dist
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.db-journal
+.git
+.gitignore
+.DS_Store
+*.log
+.vite
+.claude
+scraper
+README.md

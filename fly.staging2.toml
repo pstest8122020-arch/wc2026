@@ -1,0 +1,46 @@
+# Fly.io config for STAGING-2 — a frozen backup of the CURRENT PRODUCTION build.
+# It runs prod's deployed image (not the repo's working tree) on its own app +
+# volume, so production (jup26wc.com / wc2026-zfovlq) is never touched.
+#
+# Deploy prod's image into it with:
+#   flyctl deploy --config fly.staging2.toml --app wc2026-staging2 \
+#     --image registry.fly.io/wc2026-zfovlq:deployment-01KTAD9AW2JPR5VP4DPWFZH387
+
+app = "wc2026-staging2"
+primary_region = "ams"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  DB_PATH = "/data/wc2026.db"
+  FOOTBALL_COMPETITION_CODE = "WC"
+  SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com"
+
+# Persistent SQLite so the seeded prod data survives.
+[[mounts]]
+  source = "wc26stg2"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+    method = "GET"
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  cpus = 1
