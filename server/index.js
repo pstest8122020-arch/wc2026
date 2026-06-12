@@ -14,7 +14,7 @@ import { db, seedPlaceholderMatches } from './db.js';
 import { attachSocket } from './socket.js';
 import { startSync } from './services/sync.js';
 import { seedMatchesFromApi } from './services/footballApi.js';
-import { seedMatchesFromEspn } from './services/espnApi.js';
+import { seedMatchesFromEspn, ensureEspnIds } from './services/espnApi.js';
 
 import predictionsRouter from './routes/predictions.js';
 import matchesRouter from './routes/matches.js';
@@ -78,6 +78,14 @@ async function bootstrap() {
       console.warn('[bootstrap] no FOOTBALL_API_KEY for fallback; seeding placeholder matches');
       seedPlaceholderMatches();
     }
+  }
+
+  // Link rows seeded from another source (football-data.org / placeholders)
+  // to their ESPN events. Non-fatal: sync also self-heals on each tick.
+  try {
+    await ensureEspnIds();
+  } catch (e) {
+    console.warn('[bootstrap] ensureEspnIds failed (sync will retry):', e.message);
   }
 
   startSync();

@@ -164,6 +164,7 @@ function eventToRow(event, windows, groupMap) {
 
   return {
     api_id: String(event.id),
+    espn_id: String(event.id),
     round,
     group_name,
     home_team: homeName,
@@ -208,9 +209,9 @@ export async function seedMatchesFromEspn() {
   const wipe = db.prepare('DELETE FROM matches');
   const insert = db.prepare(`
     INSERT INTO matches
-      (api_id, round, group_name, match_num, home_team, away_team,
+      (api_id, espn_id, round, group_name, match_num, home_team, away_team,
        home_goals, away_goals, status, kickoff_utc, pts_multiplier)
-    VALUES (@api_id, @round, @group_name, @match_num, @home_team, @away_team,
+    VALUES (@api_id, @espn_id, @round, @group_name, @match_num, @home_team, @away_team,
        @home_goals, @away_goals, @status, @kickoff_utc, @pts_multiplier)
   `);
 
@@ -225,10 +226,86 @@ export async function seedMatchesFromEspn() {
   return rows.length;
 }
 
+// Backfill espn_id on rows seeded from another source (football-data.org or
+// placeholders) WITHOUT touching id/match_num/api_id — predictions reference
+// match ids, so rows must never be renumbered or reseeded. Matching strategy
+// (verified 104/104 unique against live prod + ESPN data on 2026-06-12):
+//   1. kickoff timestamp, unique for 92 of 104 matches
+//   2. simultaneous kickoffs (group-stage round 3) disambiguated by
+//      alias-normalized team names
+// Conservative: only writes when exactly one candidate remains; anything
+// ambiguous is left NULL and reported so it can never mislink a match.
+const TEAM_ALIASES = {
+  turkey: 'türkiye',
+  'cape verde islands': 'cape verde',
+  'czech republic': 'czechia',
+  'korea republic': 'south korea',
+  'usa': 'united states',
+  'ir iran': 'iran',
+};
+function normTeam(name) {
+  const n = String(name || '').toLowerCase().trim();
+  return TEAM_ALIASES[n] || n;
+}
+
+export async function ensureEspnIds() {
+  const missing = db
+    .prepare('SELECT id, home_team, away_team, kickoff_utc FROM matches WHERE espn_id IS NULL')
+    .all();
+  if (missing.length === 0) return { filled: 0, unmatched: 0 };
+
+  const { events } = await fetchEspnScoreboard();
+  const taken = new Set(
+    db.prepare('SELECT espn_id FROM matches WHERE espn_id IS NOT NULL').all().map((r) => r.espn_id),
+  );
+
+  const byTime = new Map();
+  for (const e of events) {
+    if (taken.has(String(e.id))) continue;
+    const t = new Date(e.date).getTime();
+    if (!byTime.has(t)) byTime.set(t, []);
+    byTime.get(t).push(e);
+  }
+
+  const setId = db.prepare('UPDATE matches SET espn_id = ? WHERE id = ?');
+  let filled = 0;
+  const unmatched = [];
+
+  for (const m of missing) {
+    const t = m.kickoff_utc ? new Date(m.kickoff_utc).getTime() : NaN;
+    const cands = byTime.get(t) || [];
+    let pick = null;
+    if (cands.length === 1) {
+      pick = cands[0];
+    } else if (cands.length > 1) {
+      const h = normTeam(m.home_team);
+      const a = normTeam(m.away_team);
+      const byName = cands.filter((e) => {
+        const ts = (e.competitions?.[0]?.competitors || []).map((c) => normTeam(c.team?.displayName));
+        return ts.includes(h) && ts.includes(a);
+      });
+      if (byName.length === 1) pick = byName[0];
+    }
+    if (pick) {
+      setId.run(String(pick.id), m.id);
+      byTime.set(t, cands.filter((e) => e.id !== pick.id));
+      filled++;
+    } else {
+      unmatched.push(`#${m.id} ${m.home_team} v ${m.away_team} @ ${m.kickoff_utc}`);
+    }
+  }
+
+  if (unmatched.length) {
+    console.warn(`[espnApi] ensureEspnIds: ${unmatched.length} rows left unlinked:`, unmatched.slice(0, 5).join('; '));
+  }
+  console.log(`[espnApi] ensureEspnIds: linked ${filled}/${missing.length} rows to ESPN events`);
+  return { filled, unmatched: unmatched.length };
+}
+
 // Update one match row from a scoreboard event. Mirrors footballApi.syncMatchRow:
 // admin overrides (manual_result=1) are sticky and never reverted.
 export function syncEspnMatchRow(event, windows, groupMap) {
-  const row = db.prepare('SELECT * FROM matches WHERE api_id = ?').get(String(event.id));
+  const row = db.prepare('SELECT * FROM matches WHERE espn_id = ?').get(String(event.id));
   if (!row) return null;
   if (row.manual_result) return null;
 

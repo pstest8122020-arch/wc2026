@@ -6,6 +6,7 @@ import {
   syncEspnMatchRow,
   fetchEspnPlayerResults,
   applyEspnPlayerResults,
+  ensureEspnIds,
 } from './espnApi.js';
 import {
   recalculateMatchScorePredictions,
@@ -22,6 +23,11 @@ let running = false;
 
 // ---- PRIMARY: ESPN (fixtures + scores + goalscorers/assists) ----
 async function runOnceEspn() {
+  // Self-heal: link any rows that don't have an ESPN event id yet (e.g. a DB
+  // originally seeded from football-data.org). Never renumbers or reseeds.
+  const unlinked = db.prepare('SELECT COUNT(*) AS c FROM matches WHERE espn_id IS NULL').get().c;
+  if (unlinked > 0) await ensureEspnIds();
+
   const { events, windows } = await fetchEspnScoreboard();
   const groupMap = await fetchGroupMap();
 
@@ -41,7 +47,7 @@ async function runOnceEspn() {
 
     // Decide whether to pull player-level events (goals/assists) for this match.
     const row = db
-      .prepare('SELECT id, status, manual_result FROM matches WHERE api_id = ?')
+      .prepare('SELECT id, status, manual_result FROM matches WHERE espn_id = ?')
       .get(String(ev.id));
     if (!row || row.manual_result) continue;
 

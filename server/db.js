@@ -127,6 +127,17 @@ export function migrate() {
   if (!hasWallet) {
     db.exec('ALTER TABLE participants ADD COLUMN wallet_address TEXT');
   }
+
+  // Forward migration: espn_id links a match row to its ESPN event. Kept
+  // separate from api_id (football-data.org) so a DB seeded from one source
+  // can be synced from the other without renumbering anything.
+  const hasEspnId = matchCols.some((c) => c.name === 'espn_id');
+  if (!hasEspnId) {
+    db.exec('ALTER TABLE matches ADD COLUMN espn_id TEXT');
+  }
+  db.exec(
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_matches_espn_id ON matches(espn_id) WHERE espn_id IS NOT NULL',
+  );
 }
 
 migrate();
