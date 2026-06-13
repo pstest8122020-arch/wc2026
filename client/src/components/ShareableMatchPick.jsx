@@ -117,11 +117,13 @@ const ShareableMatchPick = forwardRef(function ShareableMatchPick({ match = {}, 
         {rows.length > 0 && (
           <div style={{ borderTop: '1px solid #1D1D1C', paddingTop: 24, display: 'flex', flexDirection: 'column', gap: 15 }}>
             {rows.map(([label, val]) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
-                <div style={{ fontSize: 14, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#707070', fontWeight: 700 }}>
+              <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+                <div style={{ fontSize: 14, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#707070', fontWeight: 700, flexShrink: 0 }}>
                   {label}
                 </div>
-                <div style={{ fontSize: 26, fontWeight: 800, color: '#E8F9FF', textAlign: 'right' }}>{val}</div>
+                {/* nowrap so a two-word name (e.g. "Breel Embolo") can never wrap and
+                    overlap the next row if the capture width is ever squeezed. */}
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#E8F9FF', textAlign: 'right', lineHeight: 1.25, whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</div>
               </div>
             ))}
           </div>

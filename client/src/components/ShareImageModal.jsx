@@ -260,8 +260,12 @@ export default function ShareImageModal({
         )}
       </div>
 
-      {/* off-screen full-size card for rasterisation */}
-      <div aria-hidden="true" style={{ position: 'fixed', top: 0, left: -10000, pointerEvents: 'none', zIndex: -1 }}>
+      {/* Off-screen full-size card for rasterisation. Uses position:absolute, NOT
+          fixed: iOS Safari clamps fixed elements to the visual viewport, so on a
+          phone the 1080px card laid out at ~screen width and long player names
+          wrapped/overlapped in the export. Absolute positioning lets it lay out
+          at its true 1080px regardless of device width. */}
+      <div aria-hidden="true" style={{ position: 'absolute', top: 0, left: -10000, width: 1080, pointerEvents: 'none', zIndex: -1 }}>
         {card && cloneElement(card, { ref: captureRef })}
       </div>
     </div>
